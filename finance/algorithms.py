@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict
 
-from finance import Portfolio, Stock
+from finance import Portfolio, Stock, AmountIsZeroException, NotEnoughStocksToSellException
 from utils import get_ticker
 
 
@@ -28,41 +28,49 @@ class Algorithms:
         return p
 
     @staticmethod
-    def TenPercent(cash: float, stocks: List[Stock], percent: float) -> Portfolio:
-        p = Portfolio(initial_cash=cash)
+    def Threshold(cash: float, stocks: List[Stock], threshold: float, volatility: float) -> Portfolio:
+        # Declare a new portfolio and reset the ticker
+        p = Portfolio(initial_cash=cash, allow_short=True)
         t = get_ticker()
         t.reset()
 
+        # Store the initial price as the locked price
         locked_price: Dict[Stock, float] = {}
-        for s in stocks:
-            locked_price[s] = s.value
-            print(s.value)
+        for stk in stocks:
+            locked_price[stk] = stk.value
 
-        for i in range(len(stocks[0].openings)):
-            for s in stocks:
-                cp = s.value
-                lp = locked_price[s]
-                if (lp - cp) / lp > percent:
+        total_timeline: int = len(stocks[0].openings)
+
+        for i in range(total_timeline):
+            for stk in stocks:
+                # cp is current price, lp is the locked price
+                cp = stk.value
+                lp = locked_price[stk]
+                diff = (lp - cp) / lp
+                # if the relative difference between lp and cp is greater than threshold, buy it
+                if diff > threshold:
                     try:
-                        p.buy_amount(s, int(p.Cash * percent))
-                        lp = 0.5 * lp + 0.5 * cp
-                        locked_price[s] = lp
-                    except:
+                        p.buy_amount(stk, cash * threshold)
+                        # new lock price is the mixture of previous lock price and current price in terms of volatility
+                        lp = (1 - volatility) * lp + volatility * cp
+                        locked_price[stk] = lp
+                    except Exception as e:
+                        # if cannot buy just pass
                         pass
 
-                if (cp - lp) / lp > percent:
+                if (-diff) > threshold:
                     try:
-                        p.sell(s, int(p.get_holding(s).quantity * percent))
-                        lp = 0.5 * lp + 0.5 * cp
-                        locked_price[s] = lp
-                    except:
+                        print(
+                            f"trying to sell at {i} = {-diff}>{threshold}, cp = {cp}, lp = {lp}, amt = {cash * threshold} ")
+                        p.sell_amount(stk, cash * threshold)
+                        lp = (1 - volatility) * lp + volatility * cp
+                        locked_price[stk] = lp
+                    except NotEnoughStocksToSellException:
+                        p.square_off([stk])
+                    except AmountIsZeroException:
                         pass
 
             t.tick()
-        logging.info("Trying to sell remaining stocks")
-        for s in stocks:
-            try:
-                p.sell(s, p.get_holding(s).quantity)
-            except:
-                pass
+        logging.info("Trying to square off remaining stocks")
+        p.square_off(stocks=stocks)
         return p

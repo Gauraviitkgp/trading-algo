@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 
+from .exceptions import AmountIsZeroException, NotEnoughStocksToSellException
 from .stock import Stock
 from .enums import TransactionType
 from .transaction import Transaction
@@ -52,10 +53,10 @@ class Portfolio:
 
     def sell(self, stock: Stock, quantity: int):
         if quantity == 0:
-            raise Exception("Stock sell can't be 0")
+            raise AmountIsZeroException("Stock sell can't be 0")
 
-        if not self.AllowShort and quantity > self.get_holding(stock)["quantity"]:
-            raise Exception("Not enough stocks to sell")
+        if not self.AllowShort and quantity > self.get_holding(stock).quantity:
+            raise NotEnoughStocksToSellException("Not enough stocks to sell")
 
         amount = stock.value * quantity
 
@@ -84,6 +85,22 @@ class Portfolio:
         q = self.__holdings__[stock]
 
         return Holdings(name=stock.name, quantity=q, valuation=q * stock.value)
+
+    def square_off(self, stocks: List[Stock]):
+        """
+        Squares off all remaining stocks of the list of stocks provided
+        Args:
+            stocks: the stocks who are to be squared off
+        Returns:
+        """
+        for holding, qty in self.__holdings__.items():
+            if holding not in stocks:
+                continue
+
+            if qty > 0:
+                self.sell(holding, qty)
+            elif qty < 0:
+                self.buy(holding, -qty)
 
     @property
     def holdings(self) -> List[Holdings]:

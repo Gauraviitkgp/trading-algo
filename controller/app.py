@@ -1,8 +1,8 @@
 import logging
 from http import HTTPStatus
-from typing import List
+from typing import List, Annotated
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 
 import database
 import finance
@@ -75,8 +75,17 @@ async def get_history(symbol: finance.Symbols, data: database.StockData = Depend
 
 
 @app.post("/algorithm/{algo}")
-async def post_algorithm(algo: finance.Algos, cash: int, stocks: List[str], percentage: float = 10,
+async def post_algorithm(algo: finance.Algos, cash: int, stocks: List[str],
+                         threshold: Annotated[float, Query(title="threshold",
+                                                           description="accepted percentage change before buying")] = 0.5,
+                         volatility: Annotated[
+                             float, Query(title="volatility", description="accepted volatility when buying")] = 0.5,
                          data: database.StockData = Depends(database.get_singleton)) -> AlgorithmResult:
+    if volatility < 0 or volatility > 1:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Volatility should be between 0 and 1")
+
+    if threshold < 0 or threshold > 1:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Threshold should be between 0 and 1")
     # portfolio is the which will be produced by the algorithm
     p: finance.Portfolio
 
@@ -92,7 +101,7 @@ async def post_algorithm(algo: finance.Algos, cash: int, stocks: List[str], perc
         case finance.Algos.A:
             p = finance.Algorithms.A(cash=cash, stocks=stock)
         case finance.Algos.percent:
-            p = finance.Algorithms.TenPercent(cash=cash, stocks=stock, percent=percentage / 100)
+            p = finance.Algorithms.Threshold(cash=cash, stocks=stock, threshold=threshold, volatility=volatility)
         case _:
             raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Algorithm not found")
 

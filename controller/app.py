@@ -2,7 +2,7 @@ import logging
 from http import HTTPStatus
 from typing import List, Annotated
 
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, Body
 
 import database
 import finance
@@ -17,10 +17,18 @@ async def root():
 
 
 @app.post("/{symbol}")
-async def post_symbol(symbol: finance.Symbols, data: database.StockData = Depends(database.get_singleton)) -> StockInfo:
+async def post_symbol(symbol: finance.Symbols,
+                      period: Annotated[str, Query(title="period", description="time period of data")] = "7d",
+                      interval: Annotated[str, Query(title="interval", description="interval between ticks")] = "1m",
+                      no_cache: Annotated[
+                          bool, Query(title="no_cache", description="Whether we want to skip cached data")] = False,
+                      data: database.StockData = Depends(database.get_singleton)) -> StockInfo:
     """
 
     Args:
+        no_cache: skip cache data
+        interval: interval between ticks
+        period: time period for what you want the stock data
         symbol: the symbol you want to add in the trading computation
         data: database singleton object
 
@@ -29,10 +37,11 @@ async def post_symbol(symbol: finance.Symbols, data: database.StockData = Depend
     """
     # if already in database skip adding
     stk = data.get_by_name(symbol)
-    if stk is not None:
+    # if caching is allowed and cache data is there return cache
+    if not no_cache and stk is not None:
         return conv_stock(stk)
 
-    stk = finance.Stock(symbol)
+    stk = finance.Stock(symbol, period=period, interval=interval)
     data.insert(stk)
     return conv_stock(stk)
 
@@ -75,11 +84,15 @@ async def get_history(symbol: finance.Symbols, data: database.StockData = Depend
 
 
 @app.post("/algorithm/{algo}")
-async def post_algorithm(algo: finance.Algos, cash: int, stocks: List[str],
-                         threshold: Annotated[float, Query(title="threshold",
-                                                           description="accepted percentage change before buying")] = 0.5,
+async def post_algorithm(algo: finance.Algos,
+                         cash: Annotated[int, Query(description="Amount of cash for the transaction")],
+                         stocks: Annotated[
+                             List[str], Body(description="stocks to be taken under consideration for computation",
+                                             examples=[["rvnl.ns"]])],
+                         threshold: Annotated[
+                             float, Query(description="accepted percentage change before buying")] = 0.5,
                          volatility: Annotated[
-                             float, Query(title="volatility", description="accepted volatility when buying")] = 0.5,
+                             float, Query(description="accepted volatility when buying")] = 0.5,
                          data: database.StockData = Depends(database.get_singleton)) -> AlgorithmResult:
     if volatility < 0 or volatility > 1:
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Volatility should be between 0 and 1")

@@ -46,10 +46,15 @@ class Algorithms:
                 # cp is current price, lp is the locked price
                 cp = stk.close
                 lp = locked_price[stk]
+                if i == 0:
+                    print(
+                        f"initial lp = {lp}")
                 diff = (lp - cp) / lp
                 # if the relative difference between lp and cp is greater than threshold, buy it
                 if diff > threshold:
                     try:
+                        print(
+                            f"trying to buy at {i} = {diff}>{threshold}, cp = {cp}, lp = {lp}, amt = {cash * threshold} ")
                         p.buy_amount(stk, cash * threshold)
                         # new lock price is the mixture of previous lock price and current price in terms of volatility
                         lp = (1 - volatility) * lp + volatility * cp

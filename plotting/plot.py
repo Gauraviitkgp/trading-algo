@@ -41,7 +41,7 @@ def plot(s: finance.Stock, transactions: List[finance.Transaction] = None):
                  finance.LOW_COLNAME: "low"},
         inplace=False)
 
-    chart = Chart()
+    chart = Chart(toolbox=True)
     chart.grid(vert_enabled=True, horz_enabled=True)
     chart.legend(visible=True, font_family='Trebuchet MS', ohlc=True, percent=True)
     chart.layout(background_color='#131722', font_family='Trebuchet MS', font_size=16)
@@ -49,8 +49,11 @@ def plot(s: finance.Stock, transactions: List[finance.Transaction] = None):
     chart.show()
 
     ticks: Dict[int, finance.Transaction] = {t.Tick: t for t in transactions}
-    tick = 1
+    tick = 0
     for i, series in dataframe.iterrows():
+        if tick == 0:
+            tick += 1
+            continue
         chart.update(series)
         if tick in ticks:
             trans = ticks[tick]
@@ -59,7 +62,7 @@ def plot(s: finance.Stock, transactions: List[finance.Transaction] = None):
             if trans.Type == finance.TransactionType.SELL:
                 chart.marker(text="SELL", color="Red")
 
-        time.sleep(0.1)
+        time.sleep(0.01)
         tick += 1
 
 

@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import uuid
 
 from .exceptions import AmountIsZeroException, NotEnoughStocksToSellException
 from .stock import Stock
@@ -21,6 +22,7 @@ class Holdings:
 class Portfolio:
 
     def __init__(self, initial_cash=0.0, allow_short=False):
+        self.ID = uuid.uuid4()
         self.Cash: float = initial_cash
         self.AllowShort: bool = allow_short
 

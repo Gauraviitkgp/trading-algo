@@ -1,14 +1,15 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Annotated
 
 import finance
 from finance import Stock, Transaction, Holdings
 
 
 class AlgorithmResult(BaseModel):
-    Transactions: List[Transaction] = Field()
-    Value: float
-    Holdings: List[Holdings]
+    ID: Annotated[str, Field(description="ID corresponding to the algorithm result")]
+    Transactions: Annotated[List[Transaction], Field(description="The transactions corresponding to the algorithm")]
+    Value: Annotated[float, Field(description="Final Value after the algorithm has been run")]
+    Holdings: Annotated[List[Holdings], Field(description="Current Holdings")]
 
 
 class StockInfo(BaseModel):

@@ -52,9 +52,9 @@ class StockData:
             key: the key to delete
             stk: the stock object you want to delete.
         """
-        if key is "":
+        if key == "":
             raise Exception("key cannot be empty")
-        
+
         self.__conn__.delete(key)
 
 

@@ -1,6 +1,5 @@
 import json
-import logging
-import statistics
+from enum import Enum
 from typing import List, Dict
 
 import pandas
@@ -8,18 +7,46 @@ import yfinance as yf
 
 from utils import get_ticker
 
-DATETIME_COLNAME = "Datetime"
+DATETIME_COLNAME = "Date"
 OPEN_COLNAME = "Open"
+HIGH_COLNAME = "High"
+LOW_COLNAME = "Low"
 CLOSE_COLNAME = "Close"
-NAME_KEY = "name"
+VOLUME_COLNAME = "Volume"
+
+NAME_KEY = "Name"
+DATAFRAME_KEY = "df"
 
 
-def __create_dataframe__(opens: List[float], closes: List[float]) -> pandas.DataFrame:
-    df = pandas.DataFrame()
-    df[OPEN_COLNAME] = opens
-    df[CLOSE_COLNAME] = closes
-    df[DATETIME_COLNAME] = list(range(len(df[OPEN_COLNAME])))
-    return df
+class ValueKind(Enum):
+    """
+    ValueKind is the kind of value to return for calculation
+    """
+    Open = OPEN_COLNAME
+    Close = CLOSE_COLNAME
+    High = HIGH_COLNAME
+    Low = LOW_COLNAME
+
+    @staticmethod
+    def to_colname(kind) -> str:
+        """
+        Returns the colname corresponding to the colname
+        Args:
+            kind: Kind whose colname is needed
+
+        Returns: the colname
+        """
+        match kind:
+            case ValueKind.Open:
+                return OPEN_COLNAME
+            case ValueKind.Close:
+                return CLOSE_COLNAME
+            case ValueKind.High:
+                return HIGH_COLNAME
+            case ValueKind.Low:
+                return LOW_COLNAME
+
+        return CLOSE_COLNAME
 
 
 class Stock:
@@ -28,36 +55,74 @@ class Stock:
         self.df: pandas.DataFrame = pandas.DataFrame()
 
         if not skip_loading:
-            ticker = yf.Ticker(self.name)
-            history_df = ticker.history(period=period, interval=interval)
-            self.df = __create_dataframe__(history_df[OPEN_COLNAME], history_df[CLOSE_COLNAME])
+            self.df = self.load_from_yahoo(period, interval)
+
+    def load_from_yahoo(self, period, interval) -> pandas.DataFrame:
+        ticker = yf.Ticker(self.name)
+        return ticker.history(period=period, interval=interval)
 
     def get_history(self) -> pandas.DataFrame:
         return self.df
 
-    @staticmethod
-    def fromJSON(json_dict: Dict):
+    @classmethod
+    def fromJSON(cls, json_str: str):
+        """
+        Returns a stock object reading from json
+        Args:
+            json_str: expects "Name" as name of the stock, "df" as the dataframe json dump
+
+        Returns:
+            an object of type stock
+        """
+        json_dict: Dict = json.loads(json_str)
+
         s = Stock(json_dict[NAME_KEY], skip_loading=True)
-        s.df = __create_dataframe__(json_dict[OPEN_COLNAME], json_dict[CLOSE_COLNAME])
+        s.df = pandas.read_json(json_dict[DATAFRAME_KEY])
         return s
 
     def toJSON(self) -> str:
         d = {
             NAME_KEY: self.name,
-            OPEN_COLNAME: list(self.openings),
-            CLOSE_COLNAME: list(self.closings)
+            DATAFRAME_KEY: self.df.to_json()
         }
 
         return json.dumps(d, sort_keys=True, indent=4)
 
-    @property
-    def openings(self) -> List[float]:
-        return list(self.df[OPEN_COLNAME])
+    def values(self, kind: ValueKind = ValueKind.Close) -> List[float]:
+        """
+        Returns the list of values
+        Args:
+            kind: the kind of values you want
+
+        Returns:
+
+        """
+        return list(self.df[ValueKind.to_colname(kind)])
+
+    def __get_value__(self, kind: ValueKind):
+        """
+        Returns the value of the stock at current time
+        Args:
+            kind: Kind of value to be returned
+
+        Returns:
+            float value to be returned
+        """
+        column = self.df[ValueKind.to_colname(kind)]
+        return column.iloc[min(len(column) - 1, get_ticker().value)]
 
     @property
-    def closings(self) -> List[float]:
-        return list(self.df[CLOSE_COLNAME])
+    def close(self) -> float:
+        return self.__get_value__(kind=ValueKind.Close)
 
     @property
-    def value(self) -> float:
-        return self.openings[min(len(self.openings) - 1, get_ticker().value)]
+    def open(self) -> float:
+        return self.__get_value__(kind=ValueKind.Open)
+
+    @property
+    def low(self) -> float:
+        return self.__get_value__(kind=ValueKind.Low)
+
+    @property
+    def high(self) -> float:
+        return self.__get_value__(kind=ValueKind.High)

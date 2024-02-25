@@ -43,7 +43,7 @@ class StockData:
         if val is None:
             return None
 
-        return finance.Stock.fromJSON(json.loads(self.__conn__.get(name)))
+        return finance.Stock.fromJSON(self.__conn__.get(name))
 
     def delete(self, key: str):
         """

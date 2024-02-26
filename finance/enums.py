@@ -5,6 +5,7 @@ class Symbols(str, Enum):
     MICROSOFT = "msft"
     RAIL_VIKAS_NIGAM_LIMITED = "rvnl.ns"
     MAHABANK = "mahabank.ns"
+    MSUMI = "msumi.ns"
 
 
 class TransactionType(str, Enum):

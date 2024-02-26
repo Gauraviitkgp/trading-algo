@@ -13,7 +13,7 @@ class Algorithms:
         t = get_ticker()
         t.reset()
 
-        total = len(stocks[0].openings)
+        total = len(stocks[0].values())
         q = 0
         for i in range(total):
             if t.value in [int(0.05 * total), int(0.35 * total), int(0.65 * total), int(0.75 * total),
@@ -37,19 +37,24 @@ class Algorithms:
         # Store the initial price as the locked price
         locked_price: Dict[Stock, float] = {}
         for stk in stocks:
-            locked_price[stk] = stk.value
+            locked_price[stk] = stk.close
 
-        total_timeline: int = len(stocks[0].openings)
+        total_timeline: int = len(stocks[0].values())
 
         for i in range(total_timeline):
             for stk in stocks:
                 # cp is current price, lp is the locked price
-                cp = stk.value
+                cp = stk.close
                 lp = locked_price[stk]
+                if i == 0:
+                    print(
+                        f"initial lp = {lp}")
                 diff = (lp - cp) / lp
                 # if the relative difference between lp and cp is greater than threshold, buy it
                 if diff > threshold:
                     try:
+                        print(
+                            f"trying to buy at {i} = {diff}>{threshold}, cp = {cp}, lp = {lp}, amt = {cash * threshold} ")
                         p.buy_amount(stk, cash * threshold)
                         # new lock price is the mixture of previous lock price and current price in terms of volatility
                         lp = (1 - volatility) * lp + volatility * cp

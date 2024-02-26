@@ -35,11 +35,13 @@ async def post_symbol(symbol: finance.Symbols,
     Returns:
 
     """
-    # if already in database skip adding
-    stk = data.get_by_name(symbol)
-    # if caching is allowed and cache data is there return cache
-    if not no_cache and stk is not None:
-        return conv_stock(stk)
+
+    if not no_cache:
+        # if already in database skip adding
+        stk = data.get_by_name(symbol)
+        # if caching is allowed and cache data is there return cache
+        if stk is not None:
+            return conv_stock(stk)
 
     stk = finance.Stock(symbol, period=period, interval=interval)
     data.insert(stk)
